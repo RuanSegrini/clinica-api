@@ -7,11 +7,11 @@ import jakarta.validation.constraints.Size;
 
 public record PatientRequestDTO(
 
-        @NotBlank(message = "Nome é obrigatório")
+        @NotBlank(message = "Name is required.")
         String name,
 
-        @NotBlank(message = "Email é obrigatório")
-        @Email(message = "Email inválido")
+        @NotBlank(message = "Email is required")
+        @Email(message = "Invalid email address")
         String email,
 
         @NotBlank(message = "Telefone é obrigatório")

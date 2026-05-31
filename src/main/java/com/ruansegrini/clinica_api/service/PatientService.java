@@ -1,3 +1,5 @@
+package com.ruansegrini.clinica_api.service;
+
 import com.ruansegrini.clinica_api.domain.entity.Patient;
 import com.ruansegrini.clinica_api.dto.request.PatientRequestDTO;
 import com.ruansegrini.clinica_api.dto.response.PatientResponseDTO;
@@ -24,16 +26,16 @@ public class PatientService {
 
     public PatientResponseDTO findById(UUID id) {
         Patient patient = patientRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Paciente não encontrado"));
+                .orElseThrow(() -> new EntityNotFoundException("Patient not found"));
         return PatientResponseDTO.from(patient);
     }
 
     public PatientResponseDTO create(PatientRequestDTO dto) {
         if (patientRepository.existsByEmail(dto.email())) {
-            throw new BusinessException("Email já cadastrado");
+            throw new BusinessException("Email already registered.");
         }
         if (patientRepository.existsByCpf(dto.cpf())) {
-            throw new BusinessException("CPF já cadastrado");
+            throw new BusinessException("CPF already registred.");
         }
 
         Patient patient = new Patient();
