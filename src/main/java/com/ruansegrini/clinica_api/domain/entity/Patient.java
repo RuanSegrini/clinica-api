@@ -16,7 +16,6 @@ import java.util.UUID;
 @Getter
 @Setter
 @NoArgsConstructor
-@AllArgsConstructor
 @Table(name = "tb_patient",
 uniqueConstraints = {
         @UniqueConstraint(name = "uk_patient_email", columnNames = "email"),

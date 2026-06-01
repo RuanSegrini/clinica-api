@@ -18,7 +18,6 @@ import java.util.UUID;
 @Getter
 @Setter
 @NoArgsConstructor
-@AllArgsConstructor
 @Table(name = "tb_doctor",
 uniqueConstraints = {
         @UniqueConstraint(name = "uk_doctor_email", columnNames = "email"),
@@ -61,6 +60,7 @@ public class Doctor implements Serializable {
 
     @Override
     public boolean equals(Object o) {
+        if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Doctor doctor = (Doctor) o;
         return Objects.equals(id, doctor.id);
