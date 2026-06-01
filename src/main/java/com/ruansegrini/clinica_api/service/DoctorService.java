@@ -53,7 +53,9 @@ public class DoctorService {
                 .orElseThrow(() -> new EntityNotFoundException("Doctor not found"));
 
         doctor.setName(dto.name());
+        doctor.setEmail(dto.email());
         doctor.setPhone(dto.phone());
+        doctor.setSpecialty(dto.specialty());
 
         return DoctorResponseDTO.from(doctorRepository.save(doctor));
     }
