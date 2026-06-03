@@ -3,6 +3,7 @@ package com.ruansegrini.clinica_api.service;
 import com.ruansegrini.clinica_api.domain.entity.Doctor;
 import com.ruansegrini.clinica_api.dto.request.DoctorRequestDTO;
 import com.ruansegrini.clinica_api.dto.response.DoctorResponseDTO;
+import com.ruansegrini.clinica_api.exception.BusinessException;
 import com.ruansegrini.clinica_api.repository.DoctorRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -43,6 +44,7 @@ public class DoctorService {
         doctor.setEmail(dto.email());
         doctor.setPhone(dto.phone());
         doctor.setCrm(dto.crm());
+        doctor.setSpecialty(dto.specialty());
         doctor.setActive(true);
 
         return DoctorResponseDTO.from(doctorRepository.save(doctor));

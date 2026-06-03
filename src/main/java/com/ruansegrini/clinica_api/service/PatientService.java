@@ -3,6 +3,7 @@ package com.ruansegrini.clinica_api.service;
 import com.ruansegrini.clinica_api.domain.entity.Patient;
 import com.ruansegrini.clinica_api.dto.request.PatientRequestDTO;
 import com.ruansegrini.clinica_api.dto.response.PatientResponseDTO;
+import com.ruansegrini.clinica_api.exception.BusinessException;
 import com.ruansegrini.clinica_api.repository.PatientRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;

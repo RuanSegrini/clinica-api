@@ -45,5 +45,4 @@ public class PatientController {
         patientService.deactivate(id);
         return ResponseEntity.noContent().build();
     }
-
 }

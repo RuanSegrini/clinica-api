@@ -1,0 +1,1496 @@
+================
+src/test/java/com/ruansegrini/clinica_api/ClinicaApiApplicationTests.java
+================
+package com.ruansegrini.clinica_api;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+
+@SpringBootTest
+class ClinicaApiApplicationTests {
+
+	@Test
+	void contextLoads() {
+	}
+
+}
+
+================
+src/main/java/com/ruansegrini/clinica_api/controller/DoctorController.java
+================
+package com.ruansegrini.clinica_api.controller;
+
+import com.ruansegrini.clinica_api.dto.request.DoctorRequestDTO;
+import com.ruansegrini.clinica_api.dto.response.DoctorResponseDTO;
+import com.ruansegrini.clinica_api.service.DoctorService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/doctors")
+@RequiredArgsConstructor
+public class DoctorController {
+
+    private final DoctorService doctorService;
+
+    @GetMapping
+    public ResponseEntity<List<DoctorResponseDTO>> findAll() {
+        return ResponseEntity.ok(doctorService.findAll());
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<DoctorResponseDTO> findById(@PathVariable UUID id) {
+        return ResponseEntity.ok(doctorService.findById(id));
+    }
+
+    @PostMapping
+    public ResponseEntity<DoctorResponseDTO> create(
+            @RequestBody @Valid DoctorRequestDTO dto) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(doctorService.create(dto));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<DoctorResponseDTO> update(
+            @PathVariable UUID id,
+            @RequestBody @Valid DoctorRequestDTO dto) {
+        return ResponseEntity.ok(doctorService.updateById(id, dto));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deactivate(@PathVariable UUID id) {
+        doctorService.deactivate(id);
+        return ResponseEntity.noContent().build();
+    }
+}
+================
+src/main/java/com/ruansegrini/clinica_api/controller/AuthController.java
+================
+package com.ruansegrini.clinica_api.controller;
+
+import com.ruansegrini.clinica_api.domain.entity.User;
+import com.ruansegrini.clinica_api.domain.enums.UserRole;
+import com.ruansegrini.clinica_api.dto.request.AuthRequestDTO;
+import com.ruansegrini.clinica_api.dto.response.AuthResponseDTO;
+import com.ruansegrini.clinica_api.infra.security.JwtService;
+import com.ruansegrini.clinica_api.repository.UserRepository;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/auth")
+@RequiredArgsConstructor
+public class AuthController {
+    private final AuthenticationManager authenticationManager;
+    private final JwtService jwtService;
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    @PostMapping("/login")
+    public ResponseEntity<AuthResponseDTO> login(@RequestBody @Valid AuthRequestDTO dto) {
+
+        authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(dto.login(), dto.password()
+                ));
+
+        User user = userRepository.findByLogin(dto.login())
+                .orElseThrow();
+
+        String token = jwtService.generateToken(user);
+        return ResponseEntity.ok(new AuthResponseDTO(token));
+    }
+    @PostMapping("/register")
+    public ResponseEntity<Void> register(@RequestBody @Valid AuthRequestDTO dto
+    ) {
+        String encoded = passwordEncoder.encode(dto.password());
+        User user = new User(dto.login(), encoded, UserRole.RECEPTIONIST);
+        userRepository.save(user);
+        return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+}
+
+================
+src/main/java/com/ruansegrini/clinica_api/controller/PatientController.java
+================
+package com.ruansegrini.clinica_api.controller;
+
+import com.ruansegrini.clinica_api.dto.request.PatientRequestDTO;
+import com.ruansegrini.clinica_api.dto.response.PatientResponseDTO;
+import com.ruansegrini.clinica_api.service.PatientService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/patients")
+@RequiredArgsConstructor
+public class PatientController {
+
+    private final PatientService patientService;
+
+    @GetMapping
+    public ResponseEntity<List<PatientResponseDTO>> findAll() {
+        return ResponseEntity.ok(patientService.findAll());
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<PatientResponseDTO> findById(@PathVariable UUID id) {
+        return ResponseEntity.ok(patientService.findById(id));
+    }
+
+    @PostMapping
+    public ResponseEntity<PatientResponseDTO> create(@RequestBody @Valid PatientRequestDTO dto) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(patientService.create(dto));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<PatientResponseDTO> update(@PathVariable UUID id,
+                                                     @RequestBody @Valid PatientRequestDTO dto) {
+        return ResponseEntity.ok(patientService.update(id, dto));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deactivate(@PathVariable UUID id) {
+        patientService.deactivate(id);
+        return ResponseEntity.noContent().build();
+    }
+}
+
+================
+src/main/java/com/ruansegrini/clinica_api/controller/AppointmentController.java
+================
+package com.ruansegrini.clinica_api.controller;
+
+import com.ruansegrini.clinica_api.domain.enums.CancelReason;
+import com.ruansegrini.clinica_api.dto.request.AppointmentRequestDTO;
+import com.ruansegrini.clinica_api.dto.response.AppointmentResponseDTO;
+import com.ruansegrini.clinica_api.service.AppointmentService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/appointments")
+@RequiredArgsConstructor
+public class AppointmentController {
+
+    private final AppointmentService appointmentService;
+
+    @GetMapping
+    public ResponseEntity<List<AppointmentResponseDTO>> findAll() {
+        return ResponseEntity.ok(appointmentService.findAll());
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<AppointmentResponseDTO> findById(
+            @PathVariable UUID id) {
+        return ResponseEntity.ok(appointmentService.findById(id));
+    }
+
+    @PostMapping
+    public ResponseEntity<AppointmentResponseDTO> create(
+            @RequestBody @Valid AppointmentRequestDTO dto) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(appointmentService.create(dto));
+    }
+
+    @PatchMapping("/{id}/cancel")
+    public ResponseEntity<AppointmentResponseDTO> cancel(
+            @PathVariable UUID id,
+            @RequestParam CancelReason reason) {
+
+        return ResponseEntity.ok(
+                appointmentService.cancel(id, reason)
+        );
+    }
+
+    @PatchMapping("/{id}/complete")
+    public ResponseEntity<AppointmentResponseDTO> complete(
+            @PathVariable UUID id) {
+
+        return ResponseEntity.ok(
+                appointmentService.complete(id)
+        );
+    }
+
+    @PatchMapping("/{id}/no-show")
+    public ResponseEntity<AppointmentResponseDTO> markNoShow(
+            @PathVariable UUID id) {
+
+        return ResponseEntity.ok(
+                appointmentService.markNoShow(id)
+        );
+    }
+}
+
+================
+src/main/java/com/ruansegrini/clinica_api/exception/GlobalExceptionHandler.java
+================
+package com.ruansegrini.clinica_api.exception;
+
+import jakarta.persistence.EntityNotFoundException;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import java.util.HashMap;
+import java.util.Map;
+
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler(EntityNotFoundException.class)
+    public ResponseEntity<Map<String, String>> handleNotFound(EntityNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("error", ex.getMessage()));
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<Map<String, String>> handleIllegalState(IllegalStateException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("error", ex.getMessage()));
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, String>> handleIllegalArgument(IllegalArgumentException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("error", ex.getMessage()));
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<Map<String, Object>> handleValidation(MethodArgumentNotValidException ex) {
+        Map<String, Object> errors = new HashMap<>();
+        ex.getBindingResult().getFieldErrors().forEach(err ->
+                errors.put(err.getField(), err.getDefaultMessage())
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errors);
+    }
+
+    @ExceptionHandler(BusinessException.class)
+    public ResponseEntity<Map<String, String>> handleBusinessException(
+            BusinessException ex) {
+
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("error", ex.getMessage()));
+    }
+}
+================
+src/main/java/com/ruansegrini/clinica_api/exception/BusinessException.java
+================
+package com.ruansegrini.clinica_api.exception;
+
+public class BusinessException extends RuntimeException {
+
+    public BusinessException(String message) {
+        super(message);
+    }
+}
+
+================
+src/main/java/com/ruansegrini/clinica_api/dto/request/AppointmentRequestDTO.java
+================
+package com.ruansegrini.clinica_api.dto.request;
+
+import jakarta.validation.constraints.Future;
+import jakarta.validation.constraints.NotNull;
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+public record AppointmentRequestDTO(
+
+        @NotNull(message = "Patient is required.")
+        UUID patientId,
+
+        @NotNull(message = "Doctor is required.")
+        UUID doctorId,
+
+        @NotNull(message = "Date and time is required.")
+        @Future(message = "Appointment date must be in the future.")
+        LocalDateTime dateTime,
+
+        String notes
+) {}
+
+================
+src/main/java/com/ruansegrini/clinica_api/dto/request/AuthRequestDTO.java
+================
+package com.ruansegrini.clinica_api.dto.request;
+
+import jakarta.validation.constraints.NotBlank;
+
+public record AuthRequestDTO(
+        @NotBlank
+        String login,
+        @NotBlank
+        String password
+) {}
+
+================
+src/main/java/com/ruansegrini/clinica_api/dto/request/DoctorRequestDTO.java
+================
+package com.ruansegrini.clinica_api.dto.request;
+
+import com.ruansegrini.clinica_api.domain.enums.Specialty;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+
+public record DoctorRequestDTO(
+
+        @NotBlank(message = "Name is required.")
+        String name,
+
+        @NotBlank(message = "Email is required")
+        @Email(message = "Invalid email address.")
+        String email,
+
+        @NotBlank(message = "Crm is required.")
+        String crm,
+
+        @NotNull(message = "Specialty is required.")
+        Specialty specialty,
+
+        @NotBlank(message = "Phone is required.")
+        String phone
+) {
+}
+
+================
+src/main/java/com/ruansegrini/clinica_api/dto/request/PatientRequestDTO.java
+================
+package com.ruansegrini.clinica_api.dto.request;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+
+public record PatientRequestDTO(
+
+        @NotBlank(message = "Name is required.")
+        String name,
+
+        @NotBlank(message = "Email is required")
+        @Email(message = "Invalid email address")
+        String email,
+
+        @NotBlank(message = "Telefone é obrigatório")
+        String phone,
+
+        @NotBlank(message = "CPF é obrigatório")
+        @Size(min = 11, max = 11, message = "CPF deve ter 11 dígitos")
+        @Pattern(regexp = "\\d{11}", message = "CPF deve conter apenas números")
+        String cpf
+) {}
+
+================
+src/main/java/com/ruansegrini/clinica_api/dto/response/AppointmentResponseDTO.java
+================
+package com.ruansegrini.clinica_api.dto.response;
+
+import com.ruansegrini.clinica_api.domain.entity.Appointment;
+import com.ruansegrini.clinica_api.domain.enums.AppointmentStatus;
+import com.ruansegrini.clinica_api.domain.enums.CancelReason;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+public record AppointmentResponseDTO(
+        UUID id,
+        String patientName,
+        String doctorName,
+        LocalDateTime dateTime,
+        AppointmentStatus status,
+        CancelReason cancelReason,
+        String notes,
+        LocalDateTime createdAt,
+        LocalDateTime updatedAt
+) {
+    public static AppointmentResponseDTO from(Appointment appointment) {
+        return new AppointmentResponseDTO(
+                appointment.getId(),
+                appointment.getPatient().getName(),
+                appointment.getDoctor().getName(),
+                appointment.getDateTime(),
+                appointment.getStatus(),
+                appointment.getCancelReason(),
+                appointment.getNotes(),
+                appointment.getCreatedAt(),
+                appointment.getUpdatedAt()
+        );
+    }
+}
+================
+src/main/java/com/ruansegrini/clinica_api/dto/response/AuthResponseDTO.java
+================
+package com.ruansegrini.clinica_api.dto.response;
+
+public record AuthResponseDTO(String token) {}
+
+================
+src/main/java/com/ruansegrini/clinica_api/dto/response/PatientResponseDTO.java
+================
+package com.ruansegrini.clinica_api.dto.response;
+
+import com.ruansegrini.clinica_api.domain.entity.Patient;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+public record PatientResponseDTO(
+        UUID id,
+        String name,
+        String email,
+        String phone,
+        String cpf,
+        Boolean active,
+        LocalDateTime createdAt
+) {
+    public static PatientResponseDTO from(Patient patient) {
+        return new PatientResponseDTO(
+                patient.getId(),
+                patient.getName(),
+                patient.getEmail(),
+                patient.getPhone(),
+                patient.getCpf(),
+                patient.getActive(),
+                patient.getCreatedAt()
+        );
+    }
+}
+================
+src/main/java/com/ruansegrini/clinica_api/dto/response/DoctorResponseDTO.java
+================
+package com.ruansegrini.clinica_api.dto.response;
+
+import com.ruansegrini.clinica_api.domain.entity.Doctor;
+import com.ruansegrini.clinica_api.domain.enums.Specialty;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+public record DoctorResponseDTO (
+        UUID id,
+        String name,
+        String email,
+        String crm,
+        Specialty specialty,
+        Boolean active,
+        String phone,
+        LocalDateTime createdAt
+){
+
+    public static DoctorResponseDTO from(Doctor doctor){
+        return new DoctorResponseDTO(
+                doctor.getId(),
+                doctor.getName(),
+                doctor.getEmail(),
+                doctor.getCrm(),
+                doctor.getSpecialty(),
+                doctor.getActive(),
+                doctor.getPhone(),
+                doctor.getCreatedAt()
+        );
+    }
+}
+
+================
+src/main/java/com/ruansegrini/clinica_api/service/DoctorService.java
+================
+package com.ruansegrini.clinica_api.service;
+
+import com.ruansegrini.clinica_api.domain.entity.Doctor;
+import com.ruansegrini.clinica_api.dto.request.DoctorRequestDTO;
+import com.ruansegrini.clinica_api.dto.response.DoctorResponseDTO;
+import com.ruansegrini.clinica_api.exception.BusinessException;
+import com.ruansegrini.clinica_api.repository.DoctorRepository;
+import jakarta.persistence.EntityNotFoundException;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.UUID;
+
+@Service
+@RequiredArgsConstructor
+public class DoctorService {
+
+    private final DoctorRepository doctorRepository;
+
+    public List<DoctorResponseDTO> findAll() {
+        return doctorRepository.findAll()
+                .stream()
+                .map(DoctorResponseDTO::from)
+                .toList();
+    }
+
+    public DoctorResponseDTO findById(UUID id) {
+        Doctor doctor = doctorRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Doctor not found"));
+        return DoctorResponseDTO.from(doctor);
+    }
+
+    public DoctorResponseDTO create(DoctorRequestDTO dto) {
+        if (doctorRepository.existsByEmail(dto.email())) {
+            throw new BusinessException("Email already registered.");
+        }
+        if(doctorRepository.existsByCrm(dto.crm())) {
+            throw new BusinessException("Crm already registred.");
+        }
+
+        Doctor doctor = new Doctor();
+        doctor.setName(dto.name());
+        doctor.setEmail(dto.email());
+        doctor.setPhone(dto.phone());
+        doctor.setCrm(dto.crm());
+        doctor.setSpecialty(dto.specialty());
+        doctor.setActive(true);
+
+        return DoctorResponseDTO.from(doctorRepository.save(doctor));
+    }
+
+    public DoctorResponseDTO updateById(UUID id, DoctorRequestDTO dto) {
+        Doctor doctor = doctorRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Doctor not found"));
+
+        doctor.setName(dto.name());
+        doctor.setEmail(dto.email());
+        doctor.setPhone(dto.phone());
+        doctor.setSpecialty(dto.specialty());
+
+        return DoctorResponseDTO.from(doctorRepository.save(doctor));
+    }
+
+    public void deactivate(UUID id) {
+        Doctor doctor = doctorRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Doctor not found"));
+
+        doctor.setActive(false);
+        doctorRepository.save(doctor);
+    }
+}
+
+================
+src/main/java/com/ruansegrini/clinica_api/service/PatientService.java
+================
+package com.ruansegrini.clinica_api.service;
+
+import com.ruansegrini.clinica_api.domain.entity.Patient;
+import com.ruansegrini.clinica_api.dto.request.PatientRequestDTO;
+import com.ruansegrini.clinica_api.dto.response.PatientResponseDTO;
+import com.ruansegrini.clinica_api.exception.BusinessException;
+import com.ruansegrini.clinica_api.repository.PatientRepository;
+import jakarta.persistence.EntityNotFoundException;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.UUID;
+
+@Service
+@RequiredArgsConstructor
+public class PatientService {
+
+    private final PatientRepository patientRepository;
+
+    public List<PatientResponseDTO> findAll() {
+        return patientRepository.findAll()
+                .stream()
+                .map(PatientResponseDTO::from)
+                .toList();
+    }
+
+    public PatientResponseDTO findById(UUID id) {
+        Patient patient = patientRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Patient not found"));
+        return PatientResponseDTO.from(patient);
+    }
+
+    public PatientResponseDTO create(PatientRequestDTO dto) {
+        if (patientRepository.existsByEmail(dto.email())) {
+            throw new BusinessException("Email already registered.");
+        }
+        if (patientRepository.existsByCpf(dto.cpf())) {
+            throw new BusinessException("CPF already registred.");
+        }
+
+        Patient patient = new Patient();
+        patient.setName(dto.name());
+        patient.setEmail(dto.email());
+        patient.setPhone(dto.phone());
+        patient.setCpf(dto.cpf());
+        patient.setActive(true);
+
+        return PatientResponseDTO.from(patientRepository.save(patient));
+    }
+
+    public PatientResponseDTO update(UUID id, PatientRequestDTO dto) {
+        Patient patient = patientRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Paciente não encontrado"));
+
+        patient.setName(dto.name());
+        patient.setPhone(dto.phone());
+
+        return PatientResponseDTO.from(patientRepository.save(patient));
+    }
+
+    public void deactivate(UUID id) {
+        Patient patient = patientRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Paciente não encontrado"));
+
+        patient.setActive(false);
+        patientRepository.save(patient);
+    }
+}
+
+================
+src/main/java/com/ruansegrini/clinica_api/service/AppointmentService.java
+================
+package com.ruansegrini.clinica_api.service;
+
+import com.ruansegrini.clinica_api.domain.entity.Appointment;
+import com.ruansegrini.clinica_api.domain.entity.Doctor;
+import com.ruansegrini.clinica_api.domain.entity.Patient;
+import com.ruansegrini.clinica_api.domain.enums.CancelReason;
+import com.ruansegrini.clinica_api.dto.request.AppointmentRequestDTO;
+import com.ruansegrini.clinica_api.dto.response.AppointmentResponseDTO;
+import com.ruansegrini.clinica_api.repository.AppointmentRepository;
+import com.ruansegrini.clinica_api.repository.DoctorRepository;
+import com.ruansegrini.clinica_api.repository.PatientRepository;
+import jakarta.persistence.EntityNotFoundException;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.UUID;
+
+@Service
+@RequiredArgsConstructor
+public class AppointmentService {
+
+    private final AppointmentRepository appointmentRepository;
+    private final PatientRepository patientRepository;
+    private final DoctorRepository doctorRepository;
+
+    public List<AppointmentResponseDTO> findAll() {
+        return appointmentRepository.findAll()
+                .stream()
+                .map(AppointmentResponseDTO::from)
+                .toList();
+    }
+
+    public AppointmentResponseDTO findById(UUID id) {
+        Appointment appointment = appointmentRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Appointment not found"));
+        return AppointmentResponseDTO.from(appointment);
+    }
+
+    public AppointmentResponseDTO create(AppointmentRequestDTO dto) {
+
+        Patient patient = patientRepository.findById(dto.patientId())
+                .orElseThrow(() -> new EntityNotFoundException("Patient not found"));
+
+        Doctor doctor = doctorRepository.findById(dto.doctorId())
+                .orElseThrow(() -> new EntityNotFoundException("Doctor not found"));
+
+        boolean doctorBusy = appointmentRepository
+                .existsByDoctorIdAndDateTime(dto.doctorId(), dto.dateTime());
+        if (doctorBusy) {
+            throw new IllegalStateException("Doctor already has an appointment at this time.");
+        }
+
+        boolean patientBusy = appointmentRepository
+                .existsByPatientIdAndDateTimeBetween(
+                        dto.patientId(),
+                        dto.dateTime().toLocalDate().atStartOfDay(),
+                        dto.dateTime().toLocalDate().atTime(23, 59, 59)
+                );
+        if (patientBusy) {
+            throw new IllegalStateException("Patient already has an appointment on this day.");
+        }
+
+        Appointment appointment = new Appointment();
+        appointment.setPatient(patient);
+        appointment.setDoctor(doctor);
+        appointment.setDateTime(dto.dateTime());
+        appointment.setNotes(dto.notes());
+
+        return AppointmentResponseDTO.from(appointmentRepository.save(appointment));
+    }
+
+    public AppointmentResponseDTO cancel(UUID id, CancelReason reason) {
+        Appointment appointment = appointmentRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Appointment not found"));
+
+        if (appointment.isCompleted()) {
+            throw new IllegalStateException("Cannot cancel a completed appointment.");
+        }
+        if (appointment.isCanceled()) {
+            throw new IllegalStateException("Appointment is already canceled.");
+        }
+
+        appointment.cancel(reason);
+
+        return AppointmentResponseDTO.from(appointmentRepository.save(appointment));
+    }
+
+    public AppointmentResponseDTO complete(UUID id) {
+        Appointment appointment = appointmentRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Appointment not found"));
+
+        if (!appointment.isScheduled()) {
+            throw new IllegalStateException("Only scheduled appointments can be completed.");
+        }
+
+        appointment.complete();
+
+        return AppointmentResponseDTO.from(appointmentRepository.save(appointment));
+    }
+
+    public AppointmentResponseDTO markNoShow(UUID id) {
+        Appointment appointment = appointmentRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Appointment not found"));
+
+        if (!appointment.isScheduled()) {
+            throw new IllegalStateException("Only scheduled appointments can be marked as no-show.");
+        }
+
+        appointment.markNoShow();
+
+        return AppointmentResponseDTO.from(appointmentRepository.save(appointment));
+    }
+}
+================
+src/main/java/com/ruansegrini/clinica_api/ClinicaApiApplication.java
+================
+package com.ruansegrini.clinica_api;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class ClinicaApiApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(ClinicaApiApplication.class, args);
+	}
+
+}
+
+================
+src/main/java/com/ruansegrini/clinica_api/repository/UserRepository.java
+================
+package com.ruansegrini.clinica_api.repository;
+
+import com.ruansegrini.clinica_api.domain.entity.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.Optional;
+import java.util.UUID;
+
+public interface UserRepository extends JpaRepository<User, UUID> {
+    Optional<User> findByLogin(String login);
+}
+
+================
+src/main/java/com/ruansegrini/clinica_api/repository/AppointmentRepository.java
+================
+package com.ruansegrini.clinica_api.repository;
+
+import com.ruansegrini.clinica_api.domain.entity.Appointment;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+public interface AppointmentRepository extends JpaRepository<Appointment, UUID> {
+
+    boolean existsByDoctorIdAndDateTime(UUID doctorId, LocalDateTime dateTime);
+
+    boolean existsByPatientIdAndDateTimeBetween(UUID patientId, LocalDateTime start, LocalDateTime end);
+}
+
+================
+src/main/java/com/ruansegrini/clinica_api/repository/PatientRepository.java
+================
+package com.ruansegrini.clinica_api.repository;
+
+import com.ruansegrini.clinica_api.domain.entity.Patient;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.UUID;
+
+public interface PatientRepository extends JpaRepository<Patient, UUID> {
+    boolean existsByEmail(String email);
+    boolean existsByCpf(String cpf);
+}
+
+================
+src/main/java/com/ruansegrini/clinica_api/repository/DoctorRepository.java
+================
+package com.ruansegrini.clinica_api.repository;
+
+import com.ruansegrini.clinica_api.domain.entity.Doctor;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.UUID;
+
+public interface DoctorRepository extends JpaRepository<Doctor, UUID> {
+    boolean existsByEmail(String email);
+    boolean existsByCrm(String crm);
+}
+
+================
+src/main/java/com/ruansegrini/clinica_api/domain/entity/Patient.java
+================
+package com.ruansegrini.clinica_api.domain.entity;
+
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+import java.io.Serial;
+import java.io.Serializable;
+import java.time.LocalDateTime;
+import java.util.Objects;
+import java.util.UUID;
+
+@Entity
+@Getter
+@Setter
+@NoArgsConstructor
+@Table(name = "tb_patient",
+uniqueConstraints = {
+        @UniqueConstraint(name = "uk_patient_email", columnNames = "email"),
+        @UniqueConstraint(name = "uk_patient_cpf", columnNames = "cpf")
+})
+public class Patient implements Serializable {
+    @Serial
+    private static final long serialVersionUID = 1L;
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+
+    @Column(nullable = false)
+    private String name;
+
+    @Column(nullable = false)
+    private String email;
+
+    @Column(nullable = false)
+    private String phone;
+
+    @Column(nullable = false, length = 11)
+    private String cpf;
+
+    @Column(nullable = false)
+    private Boolean active = true;
+
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @PrePersist
+    private void prePersist() {
+        this.createdAt = LocalDateTime.now();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Patient patient = (Patient) o;
+        return Objects.equals(id, patient.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(id);
+    }
+}
+
+================
+src/main/java/com/ruansegrini/clinica_api/domain/entity/User.java
+================
+package com.ruansegrini.clinica_api.domain.entity;
+
+import com.ruansegrini.clinica_api.domain.enums.UserRole;
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+
+import java.util.Collection;
+import java.util.List;
+import java.util.UUID;
+
+@Entity
+@Table(name = "tb_user")
+@Getter
+@NoArgsConstructor
+public class User implements UserDetails {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+
+    @Column(nullable = false, unique = true)
+    private String login;
+
+    @Column(nullable = false)
+    private String password;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private UserRole role;
+
+    @Column(nullable = false)
+    private Boolean active = true;
+
+    public User(String login, String encodedPassword, UserRole role) {
+        this.login = login;
+        this.password = encodedPassword;
+        this.role = role;
+    }
+
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
+    }
+
+    @Override
+    public String getUsername() {return login;}
+
+    @Override
+    public boolean isAccountNonExpired() { return true; }
+
+    @Override
+    public boolean isAccountNonLocked() { return true; }
+
+    @Override
+    public boolean isCredentialsNonExpired() { return true; }
+
+    @Override
+    public boolean isEnabled() { return active; }
+
+}
+
+================
+src/main/java/com/ruansegrini/clinica_api/domain/entity/Appointment.java
+================
+package com.ruansegrini.clinica_api.domain.entity;
+
+import com.ruansegrini.clinica_api.domain.enums.AppointmentStatus;
+import com.ruansegrini.clinica_api.domain.enums.CancelReason;
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+import java.io.Serial;
+import java.io.Serializable;
+import java.time.LocalDateTime;
+import java.util.Objects;
+import java.util.UUID;
+
+@Entity
+@Getter
+@Setter
+@NoArgsConstructor
+@Table(name = "tb_appointment",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_appointment_doctor_datetime",
+                        columnNames = {"doctor_id", "dateTime"}
+                )
+        }
+)
+public class Appointment implements Serializable {
+    @Serial
+    private static final long serialVersionUID = 1L;
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+
+    @ManyToOne
+    @JoinColumn(name = "patient_id", nullable = false)
+    private Patient patient;
+
+    @ManyToOne
+    @JoinColumn(name = "doctor_id", nullable = false)
+    private Doctor doctor;
+
+    @Column(nullable = false)
+    private LocalDateTime dateTime;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private AppointmentStatus status;
+
+    @Enumerated(EnumType.STRING)
+    private CancelReason cancelReason;
+
+    @Column(length = 1000)
+    private String notes;
+
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @Column(nullable = false)
+    private LocalDateTime updatedAt;
+
+    @PrePersist
+    private void prePersist() {
+        this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+        if (this.status == null) {
+            this.status = AppointmentStatus.SCHEDULED;
+        }
+    }
+
+    @PreUpdate
+    private void preUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void cancel(CancelReason reason) {
+        if (reason == null) {
+            throw new IllegalArgumentException("Cancel reason is required.");
+        }
+
+        this.status = AppointmentStatus.CANCELED;
+        this.cancelReason = reason;
+    }
+
+    public void complete() {
+        this.status = AppointmentStatus.COMPLETED;
+        this.cancelReason = null;
+    }
+
+    public void markNoShow() {
+        this.status = AppointmentStatus.NO_SHOW;
+        this.cancelReason = null;
+    }
+
+    public boolean isCompleted() {
+        return status == AppointmentStatus.COMPLETED;
+    }
+
+    public boolean isNoShow() {
+        return status == AppointmentStatus.NO_SHOW;
+    }
+
+    public boolean isCanceled() {
+        return status == AppointmentStatus.CANCELED;
+    }
+
+    public boolean isScheduled() {
+        return status == AppointmentStatus.SCHEDULED;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Appointment that = (Appointment) o;
+        return Objects.equals(id, that.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(id);
+    }
+}
+================
+src/main/java/com/ruansegrini/clinica_api/domain/entity/Doctor.java
+================
+package com.ruansegrini.clinica_api.domain.entity;
+
+
+import com.ruansegrini.clinica_api.domain.enums.Specialty;
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+import java.io.Serial;
+import java.io.Serializable;
+import java.time.LocalDateTime;
+import java.util.Objects;
+import java.util.UUID;
+
+@Entity
+@Getter
+@Setter
+@NoArgsConstructor
+@Table(name = "tb_doctor",
+uniqueConstraints = {
+        @UniqueConstraint(name = "uk_doctor_email", columnNames = "email"),
+        @UniqueConstraint(name = "uk_doctor_crm", columnNames = "crm")
+})
+public class Doctor implements Serializable {
+    @Serial
+    private static final long serialVersionUID = 1L;
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+
+    @Column(nullable = false)
+    private String name;
+
+    @Column(nullable = false)
+    private String email;
+
+    @Column(nullable = false)
+    private String crm;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Specialty specialty;
+
+    @Column(nullable = false)
+    private Boolean active;
+
+    @Column(nullable = false)
+    private String phone;
+
+    @Column(nullable = false)
+    private LocalDateTime createdAt;
+
+    @PrePersist
+    private void prePersist() {
+        this.createdAt = LocalDateTime.now();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Doctor doctor = (Doctor) o;
+        return Objects.equals(id, doctor.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(id);
+    }
+}
+
+================
+src/main/java/com/ruansegrini/clinica_api/domain/enums/UserRole.java
+================
+package com.ruansegrini.clinica_api.domain.enums;
+
+public enum UserRole {
+    ADMIN,
+    DOCTOR,
+    RECEPTIONIST
+}
+
+================
+src/main/java/com/ruansegrini/clinica_api/domain/enums/CancelReason.java
+================
+package com.ruansegrini.clinica_api.domain.enums;
+
+public enum CancelReason {
+
+    PATIENT_CANCELED,
+    DOCTOR_CANCELED,
+    CLINIC_CLOSED,
+    OTHER
+}
+
+================
+src/main/java/com/ruansegrini/clinica_api/domain/enums/AppointmentStatus.java
+================
+package com.ruansegrini.clinica_api.domain.enums;
+
+public enum AppointmentStatus {
+
+    SCHEDULED,
+    COMPLETED,
+    CANCELED,
+    NO_SHOW
+}
+
+================
+src/main/java/com/ruansegrini/clinica_api/domain/enums/Specialty.java
+================
+package com.ruansegrini.clinica_api.domain.enums;
+
+public enum Specialty {
+
+    CARDIOLOGY,
+    ORTHOPEDICS,
+    NEUROLOGY,
+    DERMATOLOGY,
+    GENERAL_PRACTICE,
+    PEDIATRICS;
+}
+
+================
+src/main/java/com/ruansegrini/clinica_api/infra/security/JwtAuthFilter.java
+================
+package com.ruansegrini.clinica_api.infra.security;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import java.io.IOException;
+
+@Component
+@RequiredArgsConstructor
+public class JwtAuthFilter extends OncePerRequestFilter {
+    private final JwtService jwtService;
+    private final UserDetailsServiceImpl userDetailsService;
+    @Override
+    protected void doFilterInternal(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    FilterChain filterChain)
+            throws ServletException, IOException {
+
+        String authHeader = request.getHeader("Authorization");
+
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        String token = authHeader.substring(7);
+
+        String login = jwtService.extractLogin(token);
+
+        if (login != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+
+            UserDetails userDetails = userDetailsService.loadUserByUsername(login);
+
+            if (jwtService.isTokenValid(token, userDetails)) {
+
+                UsernamePasswordAuthenticationToken auth =
+                        new UsernamePasswordAuthenticationToken(
+                                userDetails, null, userDetails.getAuthorities());
+                auth.setDetails(new WebAuthenticationDetailsSource()
+                        .buildDetails(request));
+                SecurityContextHolder.getContext().setAuthentication(auth);
+            }
+        }
+
+        filterChain.doFilter(request, response);
+    }
+}
+
+================
+src/main/java/com/ruansegrini/clinica_api/infra/security/JwtService.java
+================
+package com.ruansegrini.clinica_api.infra.security;
+
+import com.ruansegrini.clinica_api.domain.entity.User;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.stereotype.Service;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.io.Decoders;
+import io.jsonwebtoken.security.Keys;
+
+import javax.crypto.SecretKey;
+import java.util.Date;
+
+@Service
+public class JwtService {
+    @Value("${api.security.token.secret}")
+    private String secret;
+    @Value("${api.security.token.expiration}")
+    private long expiration;
+
+    public String generateToken(User user) {
+        return Jwts.builder()
+                .subject(user.getLogin())
+                .claim("role", user.getRole().name())
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + expiration))
+                .signWith(getSigningKey())
+                .compact();
+    }
+
+    public String extractLogin(String token) {
+        return getClaims(token).getSubject();
+    }
+
+    public boolean isTokenValid(String token, UserDetails userDetails) {
+        String login = extractLogin(token);
+        return login.equals(userDetails.getUsername()) && !isExpired(token);
+    }
+    private boolean isExpired(String token) {
+        return getClaims(token).getExpiration().before(new Date());
+    }
+    private Claims getClaims(String token) {
+        return Jwts.parser()
+                .verifyWith(getSigningKey())
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
+    }
+    private SecretKey getSigningKey() {
+        byte[] key = Decoders.BASE64.decode(secret);
+        return Keys.hmacShaKeyFor(key);
+    }
+}
+================
+src/main/java/com/ruansegrini/clinica_api/infra/security/SecurityConfig.java
+================
+package com.ruansegrini.clinica_api.infra.security;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+@Configuration
+@EnableWebSecurity
+@RequiredArgsConstructor
+public class SecurityConfig {
+    private final JwtAuthFilter jwtAuthFilter;
+    private final UserDetailsServiceImpl userDetailsService;
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+                .csrf(csrf -> csrf.disable())
+                .sessionManagement(session -> session
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth
+                                .requestMatchers("/auth/login", "/auth/register").permitAll()
+                        .requestMatchers("/auth/**").permitAll()
+
+                        .requestMatchers(HttpMethod.POST, "/doctors/**")
+                        .hasRole("ADMIN")
+
+                        .requestMatchers(HttpMethod.DELETE, "/doctors/**")
+                        .hasRole("ADMIN")
+
+                        .requestMatchers("/patients/**")
+                        .hasAnyRole("ADMIN", "RECEPTIONIST")
+
+                        .requestMatchers("/appointments/**")
+                        .hasAnyRole("ADMIN", "DOCTOR", "RECEPTIONIST")
+
+                        .anyRequest().authenticated()
+                )
+                .addFilterBefore(jwtAuthFilter,
+                        UsernamePasswordAuthenticationFilter.class);
+        return http.build();
+    }
+    @Bean
+    public AuthenticationManager authenticationManager(
+            AuthenticationConfiguration config) throws Exception {
+        return config.getAuthenticationManager();
+    }
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+}
+================
+src/main/java/com/ruansegrini/clinica_api/infra/security/UserDetailsServiceImpl.java
+================
+package com.ruansegrini.clinica_api.infra.security;
+
+import com.ruansegrini.clinica_api.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.stereotype.Service;
+
+@Service
+@RequiredArgsConstructor
+public class UserDetailsServiceImpl implements UserDetailsService {
+
+    private final UserRepository userRespositry;
+
+    @Override
+    public UserDetails loadUserByUsername(String login) {
+        return userRespositry.findByLogin(login)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+    }
+}
+
+================
+src/main/resources/application.yaml
+================
+spring:
+  application:
+    name: clinica-api
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/clinicadb
+    username: postgres
+    password: postgres
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+api:
+  security:
+    token:
+      secret: rP3cK7y8wQ2sM9vL1hF5eD8tX6nB4aJ0uY7zR2gH9kP3mN5cV8sQ1wE6rT4yU7iA
+      expiration: 86400000
+
+server:
+  port: 8080
