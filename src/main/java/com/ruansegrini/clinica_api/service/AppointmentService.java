@@ -6,6 +6,7 @@ import com.ruansegrini.clinica_api.domain.entity.Patient;
 import com.ruansegrini.clinica_api.domain.enums.CancelReason;
 import com.ruansegrini.clinica_api.dto.request.AppointmentRequestDTO;
 import com.ruansegrini.clinica_api.dto.response.AppointmentResponseDTO;
+import com.ruansegrini.clinica_api.exception.BusinessException;
 import com.ruansegrini.clinica_api.repository.AppointmentRepository;
 import com.ruansegrini.clinica_api.repository.DoctorRepository;
 import com.ruansegrini.clinica_api.repository.PatientRepository;
@@ -42,8 +43,16 @@ public class AppointmentService {
         Patient patient = patientRepository.findById(dto.patientId())
                 .orElseThrow(() -> new EntityNotFoundException("Patient not found"));
 
+        if (!Boolean.TRUE.equals(patient.getActive())) {
+            throw new BusinessException("Inactive patient cannot schedule appointments.");
+        }
+
         Doctor doctor = doctorRepository.findById(dto.doctorId())
                 .orElseThrow(() -> new EntityNotFoundException("Doctor not found"));
+
+        if (!Boolean.TRUE.equals(doctor.getActive())) {
+            throw new BusinessException("Inactive doctor cannot receive appointments.");
+        }
 
         boolean doctorBusy = appointmentRepository
                 .existsByDoctorIdAndDateTime(dto.doctorId(), dto.dateTime());
