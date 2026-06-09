@@ -6,6 +6,7 @@ import com.ruansegrini.clinica_api.dto.response.DoctorResponseDTO;
 import com.ruansegrini.clinica_api.exception.BusinessException;
 import com.ruansegrini.clinica_api.repository.DoctorRepository;
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -18,6 +19,7 @@ public class DoctorService {
 
     private final DoctorRepository doctorRepository;
 
+    @Transactional
     public List<DoctorResponseDTO> findAll() {
         return doctorRepository.findAll()
                 .stream()
@@ -25,12 +27,14 @@ public class DoctorService {
                 .toList();
     }
 
+    @Transactional
     public DoctorResponseDTO findById(UUID id) {
         Doctor doctor = doctorRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Doctor not found"));
         return DoctorResponseDTO.from(doctor);
     }
 
+    @Transactional
     public DoctorResponseDTO create(DoctorRequestDTO dto) {
         if (doctorRepository.existsByEmail(dto.email())) {
             throw new BusinessException("Email already registered.");
@@ -50,6 +54,7 @@ public class DoctorService {
         return DoctorResponseDTO.from(doctorRepository.save(doctor));
     }
 
+    @Transactional
     public DoctorResponseDTO updateById(UUID id, DoctorRequestDTO dto) {
         Doctor doctor = doctorRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Doctor not found"));
@@ -59,14 +64,14 @@ public class DoctorService {
         doctor.setPhone(dto.phone());
         doctor.setSpecialty(dto.specialty());
 
-        return DoctorResponseDTO.from(doctorRepository.save(doctor));
+        return DoctorResponseDTO.from(doctor);
     }
 
+    @Transactional
     public void deactivate(UUID id) {
         Doctor doctor = doctorRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Doctor not found"));
 
         doctor.setActive(false);
-        doctorRepository.save(doctor);
     }
 }

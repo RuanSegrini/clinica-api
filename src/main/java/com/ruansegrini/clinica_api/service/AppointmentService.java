@@ -11,6 +11,7 @@ import com.ruansegrini.clinica_api.repository.AppointmentRepository;
 import com.ruansegrini.clinica_api.repository.DoctorRepository;
 import com.ruansegrini.clinica_api.repository.PatientRepository;
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -25,6 +26,7 @@ public class AppointmentService {
     private final PatientRepository patientRepository;
     private final DoctorRepository doctorRepository;
 
+    @Transactional
     public List<AppointmentResponseDTO> findAll() {
         return appointmentRepository.findAll()
                 .stream()
@@ -32,12 +34,14 @@ public class AppointmentService {
                 .toList();
     }
 
+    @Transactional
     public AppointmentResponseDTO findById(UUID id) {
         Appointment appointment = appointmentRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Appointment not found"));
         return AppointmentResponseDTO.from(appointment);
     }
 
+    @Transactional
     public AppointmentResponseDTO create(AppointmentRequestDTO dto) {
 
         Patient patient = patientRepository.findById(dto.patientId())
@@ -79,6 +83,7 @@ public class AppointmentService {
         return AppointmentResponseDTO.from(appointmentRepository.save(appointment));
     }
 
+    @Transactional
     public AppointmentResponseDTO cancel(UUID id, CancelReason reason) {
         Appointment appointment = appointmentRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Appointment not found"));
@@ -95,6 +100,7 @@ public class AppointmentService {
         return AppointmentResponseDTO.from(appointmentRepository.save(appointment));
     }
 
+    @Transactional
     public AppointmentResponseDTO complete(UUID id) {
         Appointment appointment = appointmentRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Appointment not found"));
@@ -108,6 +114,7 @@ public class AppointmentService {
         return AppointmentResponseDTO.from(appointmentRepository.save(appointment));
     }
 
+    @Transactional
     public AppointmentResponseDTO markNoShow(UUID id) {
         Appointment appointment = appointmentRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Appointment not found"));

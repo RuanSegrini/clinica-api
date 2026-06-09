@@ -6,6 +6,7 @@ import com.ruansegrini.clinica_api.dto.response.PatientResponseDTO;
 import com.ruansegrini.clinica_api.exception.BusinessException;
 import com.ruansegrini.clinica_api.repository.PatientRepository;
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -18,6 +19,7 @@ public class PatientService {
 
     private final PatientRepository patientRepository;
 
+    @Transactional
     public List<PatientResponseDTO> findAll() {
         return patientRepository.findAll()
                 .stream()
@@ -25,12 +27,14 @@ public class PatientService {
                 .toList();
     }
 
+    @Transactional
     public PatientResponseDTO findById(UUID id) {
         Patient patient = patientRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Patient not found"));
         return PatientResponseDTO.from(patient);
     }
 
+    @Transactional
     public PatientResponseDTO create(PatientRequestDTO dto) {
         if (patientRepository.existsByEmail(dto.email())) {
             throw new BusinessException("Email already registered.");
@@ -49,6 +53,7 @@ public class PatientService {
         return PatientResponseDTO.from(patientRepository.save(patient));
     }
 
+    @Transactional
     public PatientResponseDTO update(UUID id, PatientRequestDTO dto) {
         Patient patient = patientRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Paciente não encontrado"));
@@ -59,6 +64,7 @@ public class PatientService {
         return PatientResponseDTO.from(patientRepository.save(patient));
     }
 
+    @Transactional
     public void deactivate(UUID id) {
         Patient patient = patientRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Paciente não encontrado"));
